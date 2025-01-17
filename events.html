@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eventos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body, html {
+      font-family: 'Montserrat', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9f9f9;
+      font-weight: 400;
+      overflow-x: hidden;
+    }
+    h2 {
+      color: #79337D;
+      margin-bottom: 10px;
+      font-family: 'Poppins', sans-serif;
+    }
+    h3 {
+      color: #484747;
+    }
+    .card-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    .btn {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 20px;
+      color: #000;
+      text-decoration: none;
+      border-radius: 0px;
+      border: 4px solid Black;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 400;
+      transition: transform 0.3s;
+    }
+    .btn:hover {
+      color: #79337D;
+      background-color: #FAF9F6;
+      border: 4px solid #79337D;
+      transform: scale(0.90);
+    }
+    .today-event {
+      background-color: #C871C0A8;
+      color: #fff;
+      font-size: larger;
+      border: 2px solid #C871C0;
+    }
+    .upcoming-event {
+      background-color: #E1F5FE;
+      border: 2px solid #81D4FA;
+    }
+    .past-event {
+      background-color: #F9F9F9;
+      border: 1px solid #DDD;
+    }
+    .no-events {
+      text-align: center;
+      font-size: 18px;
+      color: #79337D;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="section">
+    <h2>Eventos da Semana</h2>
+    <div class="card-container" id="week-events"></div>
+    <div id="week-no-events" class="no-events">Sem eventos nesta semana</div>
+  </div>
+
+  <div class="section">
+    <h2>Próximos Eventos</h2>
+    <h3>Próximos Meses</h3>
+    <div class="card-container" id="next-month-events"></div>
+    <div id="upcoming-no-events" class="no-events">Nenhum evento para mostrar</div>
+  </div>
+
+  <div class="section">
+    <h2>Eventos Anteriores</h2>
+    <div class="card-container" id="past-events"></div>
+    <div class="show-more">
+      <button id="load-more" class="btn">Mostrar Mais</button>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = 'AIzaSyCLe349_sO1UGm0z6fvyHF95jN_4wQDnzw';
+    const CALENDAR_ID = 'thoquetalk@gmail.com';
+    const BASE_URL = `https://www.googleapis.com/calendar/v3/calendars/${CALENDAR_ID}/events`;
+
+    async function fetchEvents() {
+      try {
+        const response = await fetch(`${BASE_URL}?key=${API_KEY}`);
+        const data = await response.json();
+        return data.items;
+      } catch (error) {
+        console.error('Erro ao buscar eventos:', error);
+        return [];
+      }
+    }
+
+    function createCard(event, type) {
+      const eventDate = new Date(event.start.dateTime || event.start.date).toLocaleString('pt-BR');
+      const description = event.description || 'Sem descrição';
+
+      return `
+        <div class="card ${type}">
+          <h3>${event.summary}</h3>
+          <p>${eventDate}</p>
+          <p>${description}</p>
+        </div>
+      `;
+    }
+
+    async function renderWeekEvents() {
+      const events = await fetchEvents();
+      const today = new Date();
+      const endOfWeek = new Date();
+      endOfWeek.setDate(today.getDate() + 7);
+
+      const weekEvents = events.filter(event => {
+        const eventDate = new Date(event.start.dateTime || event.start.date);
+        return eventDate >= today && eventDate <= endOfWeek;
+      }).sort((a, b) => new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date));
+
+      const container = document.getElementById('week-events');
+      const noEventsMessage = document.getElementById('week-no-events');
+
+      if (weekEvents.length > 0) {
+        container.innerHTML = weekEvents.map(event => createCard(event, 'today-event')).join('');
+        noEventsMessage.style.display = 'none';
+      } else {
+        container.innerHTML = '';
+        noEventsMessage.style.display = 'block';
+      }
+    }
+
+    async function renderUpcomingEvents() {
+      const events = await fetchEvents();
+      const today = new Date();
+      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+
+      const nextMonthEvents = events.filter(event => {
+        const eventDate = new Date(event.start.dateTime || event.start.date);
+        return eventDate >= nextMonth;
+      }).sort((a, b) => new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date));
+
+      const nextMonthContainer = document.getElementById('next-month-events');
+      const noEventsMessage = document.getElementById('upcoming-no-events');
+
+      nextMonthContainer.innerHTML = nextMonthEvents.map(event => createCard(event, 'upcoming-event')).join('');
+
+      if (nextMonthEvents.length === 0) {
+        noEventsMessage.style.display = 'block';
+      } else {
+        noEventsMessage.style.display = 'none';
+      }
+    }
+
+    async function renderPastEvents() {
+      const events = await fetchEvents();
+      const today = new Date();
+
+      const pastEvents = events.filter(event => {
+        const eventDate = new Date(event.start.dateTime || event.start.date);
+        return eventDate < today;
+      }).sort((a, b) => new Date(b.start.dateTime || b.start.date) - new Date(a.start.dateTime || a.start.date));
+
+      const pastEventsContainer = document.getElementById('past-events');
+      const loadMoreButton = document.getElementById('load-more');
+
+      let pastEventsShown = 0;
+
+      function loadMorePastEvents() {
+        const eventsToShow = pastEvents.slice(pastEventsShown, pastEventsShown + 5);
+        pastEventsContainer.innerHTML += eventsToShow.map(event => createCard(event, 'past-event')).join('');
+        pastEventsShown += eventsToShow.length;
+
+        if (pastEventsShown >= pastEvents.length) {
+          loadMoreButton.style.display = 'none';
+        }
+      }
+
+      loadMoreButton.addEventListener('click', loadMorePastEvents);
+      loadMorePastEvents();
+    }
+
+    renderWeekEvents();
+    renderUpcomingEvents();
+    renderPastEvents();
+  </script>
+</body>
+</html>
